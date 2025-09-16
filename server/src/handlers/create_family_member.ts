@@ -1,14 +1,26 @@
+import { db } from '../db';
+import { familyMembersTable } from '../db/schema';
 import { type CreateFamilyMemberInput, type FamilyMember } from '../schema';
 
-export async function createFamilyMember(input: CreateFamilyMemberInput): Promise<FamilyMember> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new family member and persisting it in the database.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createFamilyMember = async (input: CreateFamilyMemberInput): Promise<FamilyMember> => {
+  try {
+    // Insert family member record
+    const result = await db.insert(familyMembersTable)
+      .values({
         name: input.name,
         email: input.email,
-        avatar_url: input.avatar_url || null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as FamilyMember);
-}
+        avatar_url: input.avatar_url || null
+      })
+      .returning()
+      .execute();
+
+    // Return the created family member
+    const familyMember = result[0];
+    return {
+      ...familyMember
+    };
+  } catch (error) {
+    console.error('Family member creation failed:', error);
+    throw error;
+  }
+};

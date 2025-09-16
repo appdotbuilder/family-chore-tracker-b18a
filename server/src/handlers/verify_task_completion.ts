@@ -1,19 +1,44 @@
+import { db } from '../db';
+import { taskCompletionsTable, familyMembersTable } from '../db/schema';
 import { type VerifyTaskCompletionInput, type TaskCompletion } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export async function verifyTaskCompletion(input: VerifyTaskCompletionInput): Promise<TaskCompletion> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is verifying a task completion by another family member.
-    // It should update the completion record with verification details and timestamp.
-    return Promise.resolve({
-        id: input.completion_id,
-        task_id: 1,
-        family_member_id: 1,
-        completed_at: new Date(),
+  try {
+    // First, verify that the completion record exists
+    const existingCompletion = await db.select()
+      .from(taskCompletionsTable)
+      .where(eq(taskCompletionsTable.id, input.completion_id))
+      .execute();
+
+    if (existingCompletion.length === 0) {
+      throw new Error(`Task completion with id ${input.completion_id} not found`);
+    }
+
+    // Verify that the verifier family member exists
+    const verifier = await db.select()
+      .from(familyMembersTable)
+      .where(eq(familyMembersTable.id, input.verified_by))
+      .execute();
+
+    if (verifier.length === 0) {
+      throw new Error(`Family member with id ${input.verified_by} not found`);
+    }
+
+    // Update the task completion with verification details
+    const result = await db.update(taskCompletionsTable)
+      .set({
         status: input.status,
-        proof_image_url: null,
-        notes: null,
         verified_by: input.verified_by,
-        verified_at: new Date(),
-        created_at: new Date()
-    } as TaskCompletion);
+        verified_at: new Date()
+      })
+      .where(eq(taskCompletionsTable.id, input.completion_id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Task completion verification failed:', error);
+    throw error;
+  }
 }

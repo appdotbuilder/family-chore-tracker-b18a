@@ -1,11 +1,12 @@
+import { db } from '../db';
+import { tasksTable, streaksTable } from '../db/schema';
 import { type CreateTaskInput, type Task } from '../schema';
 
-export async function createTask(input: CreateTaskInput): Promise<Task> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new task and persisting it in the database.
-    // It should also initialize a streak record for the assigned family member.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createTask = async (input: CreateTaskInput): Promise<Task> => {
+  try {
+    // Insert task record
+    const taskResult = await db.insert(tasksTable)
+      .values({
         title: input.title,
         description: input.description || null,
         task_type: input.task_type,
@@ -13,8 +14,27 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
         points: input.points,
         assigned_to: input.assigned_to,
         created_by: input.created_by,
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Task);
-}
+        is_active: true
+      })
+      .returning()
+      .execute();
+
+    const task = taskResult[0];
+
+    // Initialize streak record for the assigned family member
+    await db.insert(streaksTable)
+      .values({
+        family_member_id: input.assigned_to,
+        task_id: task.id,
+        current_streak: 0,
+        longest_streak: 0,
+        last_completion_date: null
+      })
+      .execute();
+
+    return task;
+  } catch (error) {
+    console.error('Task creation failed:', error);
+    throw error;
+  }
+};
